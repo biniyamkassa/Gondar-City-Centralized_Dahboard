@@ -227,7 +227,19 @@
                                 // Get saved value for this field
                                 const savedValue = currentFormData[colName] || '';
 
-                                if (colType.includes('int') || colType.includes('decimal')) {
+                                // Check if this column has dropdown options
+                                const dropdownOptions = data.dropdownOptions && data.dropdownOptions[colName];
+
+                                if (dropdownOptions && dropdownOptions.length > 0) {
+                                    // Create dropdown select
+                                    inputField = `<select name="${colName}" required>`;
+                                    inputField += '<option value="">Select an option</option>';
+                                    dropdownOptions.forEach(option => {
+                                        const selected = savedValue === option.value ? 'selected' : '';
+                                        inputField += `<option value="${option.value}" ${selected}>${option.label}</option>`;
+                                    });
+                                    inputField += '</select>';
+                                } else if (colType.includes('int') || colType.includes('decimal')) {
                                     inputField = `<input type="number" name="${colName}" step="${colType.includes('decimal') ? '0.01' : '1'}" value="${savedValue}" required>`;
                                 } else if (colType.includes('bool')) {
                                     const trueSelected = savedValue === 'true' ? 'selected' : '';

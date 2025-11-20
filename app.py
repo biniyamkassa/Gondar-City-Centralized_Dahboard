@@ -62,6 +62,19 @@ def initialize_database():
                 )
             ''')
 
+            # Create table_dropdown_options table if not exists
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS table_dropdown_options (
+                    id SERIAL PRIMARY KEY,
+                    table_name VARCHAR(100) NOT NULL,
+                    column_name VARCHAR(100) NOT NULL,
+                    option_value VARCHAR(255) NOT NULL,
+                    option_label VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(table_name, column_name, option_value)
+                )
+            ''')
+
             conn.commit()
             cur.close()
             conn.close()
@@ -183,6 +196,7 @@ def create_table():
     table_name = data.get('tableName')
     columns = data.get('columns', [])
     assigned_user = data.get('assignedUser', '')
+    dropdown_options = data.get('dropdownOptions', {})
 
     # Ensure database is initialized
     initialize_database()
@@ -211,6 +225,18 @@ def create_table():
             '''
 
             cur.execute(create_table_query)
+
+            # Save dropdown options if any
+            for column_name, options in dropdown_options.items():
+                for option in options:
+                    if option['value'] and option['label']:
+                        cur.execute('''
+                            INSERT INTO table_dropdown_options 
+                            (table_name, column_name, option_value, option_label)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (table_name, column_name, option_value) 
+                            DO UPDATE SET option_label = EXCLUDED.option_label
+                        ''', (table_name, column_name, option['value'], option['label']))
 
             # If a user is assigned to this table, create permission
             if assigned_user:
@@ -268,7 +294,7 @@ def get_tables():
             cur.execute("""
                 SELECT table_name FROM information_schema.tables 
                 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-                AND table_name NOT IN ('system_users', 'user_table_permissions')
+                AND table_name NOT IN ('system_users', 'user_table_permissions', 'table_dropdown_options')
                 ORDER BY table_name
             """)
             tables = [row[0] for row in cur.fetchall()]
@@ -331,9 +357,30 @@ def get_table_columns(table_name):
 
             columns = [{'name': row[0], 'type': row[1]}
                        for row in cur.fetchall()]
+
+            # Get dropdown options for each column
+            dropdown_options = {}
+            for column in columns:
+                cur.execute("""
+                    SELECT option_value, option_label 
+                    FROM table_dropdown_options 
+                    WHERE table_name = %s AND column_name = %s
+                    ORDER BY option_value
+                """, (table_name, column['name']))
+
+                options = cur.fetchall()
+                if options:
+                    dropdown_options[column['name']] = [
+                        {'value': row[0], 'label': row[1]} for row in options
+                    ]
+
             cur.close()
             conn.close()
-            return jsonify({'success': True, 'columns': columns})
+            return jsonify({
+                'success': True,
+                'columns': columns,
+                'dropdownOptions': dropdown_options
+            })
         except Exception as e:
             return jsonify({'success': False, 'message': str(e)})
 

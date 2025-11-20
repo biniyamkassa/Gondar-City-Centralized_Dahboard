@@ -218,13 +218,46 @@
                         <option value="TEXT" ${type === 'TEXT' ? 'selected' : ''}>Long Text</option>
                         <option value="DECIMAL(10,2)" ${type === 'DECIMAL(10,2)' ? 'selected' : ''}>Decimal</option>
                     </select>
+                    <button type="button" class="btn btn-secondary configure-dropdown" style="margin-left: 10px;">Configure Dropdown</button>
                     <button type="button" class="btn btn-danger remove-column">Remove</button>
+                </div>
+                <div class="dropdown-options-container" style="display: none; margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                    <h4>Dropdown Options for this Column</h4>
+                    <div class="dropdown-options-list"></div>
+                    <button type="button" class="btn btn-secondary add-dropdown-option">Add Option</button>
                 </div>
             `;
             document.getElementById('columnsContainer').appendChild(columnDiv);
 
+            // Add event listeners
             columnDiv.querySelector('.remove-column').addEventListener('click', function () {
                 columnDiv.remove();
+            });
+
+            columnDiv.querySelector('.configure-dropdown').addEventListener('click', function () {
+                const optionsContainer = columnDiv.querySelector('.dropdown-options-container');
+                optionsContainer.style.display = optionsContainer.style.display === 'none' ? 'block' : 'none';
+            });
+
+            columnDiv.querySelector('.add-dropdown-option').addEventListener('click', function () {
+                addDropdownOption(columnDiv);
+            });
+        }
+
+        function addDropdownOption(columnDiv, value = '', label = '') {
+            const optionsList = columnDiv.querySelector('.dropdown-options-list');
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'dropdown-option-row';
+            optionDiv.style.marginBottom = '5px';
+            optionDiv.innerHTML = `
+                <input type="text" class="dropdown-value" placeholder="Option Value" value="${value}" style="width: 150px;">
+                <input type="text" class="dropdown-label" placeholder="Option Label" value="${label}" style="width: 150px;">
+                <button type="button" class="btn btn-danger remove-dropdown-option" style="margin-left: 10px;">Remove</button>
+            `;
+            optionsList.appendChild(optionDiv);
+
+            optionDiv.querySelector('.remove-dropdown-option').addEventListener('click', function () {
+                optionDiv.remove();
             });
         }
 
@@ -238,6 +271,7 @@
             e.preventDefault();
 
             const columns = [];
+            const dropdownOptions = {};
             const columnRows = document.querySelectorAll('.column-row');
 
             columnRows.forEach(row => {
@@ -245,6 +279,21 @@
                 const type = row.querySelector('.column-type').value;
                 if (name && type) {
                     columns.push({ name, type });
+
+                    // Collect dropdown options for this column
+                    const optionRows = row.querySelectorAll('.dropdown-option-row');
+                    const options = [];
+                    optionRows.forEach(optionRow => {
+                        const value = optionRow.querySelector('.dropdown-value').value;
+                        const label = optionRow.querySelector('.dropdown-label').value;
+                        if (value && label) {
+                            options.push({ value, label });
+                        }
+                    });
+
+                    if (options.length > 0) {
+                        dropdownOptions[name] = options;
+                    }
                 }
             });
 
@@ -256,7 +305,8 @@
             const tableData = {
                 tableName: document.getElementById('tableName').value,
                 columns: columns,
-                assignedUser: document.getElementById('assignedUser').value
+                assignedUser: document.getElementById('assignedUser').value,
+                dropdownOptions: dropdownOptions
             };
 
             fetch('/create_table', {
