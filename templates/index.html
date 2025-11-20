@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Database Manager - bini_database</h1>
+        <div class="button-group">
+            <a href="/admin" class="btn btn-primary">Admin Panel</a>
+            <div class="user-section">
+                <h3>User Access</h3>
+                <p>Access forms and submit data</p>
+                <a href="/user_login" class="btn btn-secondary">User Login</a>
+                <a href="/user_dashboard" class="btn btn-secondary">User Dashboard</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>How it works:</h2>
+            <div class="steps">
+                <div class="step">
+                    <h3>Step 1: Admin creates users</h3>
+                    <p>Go to Admin Panel → Create User to add new users</p>
+                </div>
+                <div class="step">
+                    <h3>Step 2: Admin creates forms/tables</h3>
+                    <p>Go to Admin Panel → Create Table to design forms</p>
+                </div>
+                <div class="step">
+                    <h3>Step 3: Users login</h3>
+                    <p>Users login with their credentials</p>
+                </div>
+                <div class="step">
+                    <h3>Step 4: Users fill forms</h3>
+                    <p>Users select forms and submit data</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
