@@ -1,0 +1,8 @@
+try:
+    if os.path.exists('static/fonts/amharic.ttf'):
+        pdfmetrics.registerFont(TTFont('Amharic', 'static/fonts/amharic.ttf'))
+        print("Amharic font registered successfully")
+    else:
+        print("Amharic font file not found, using default fonts")
+except Exception as e:
+    print(f"Could not register Amharic font: {e}")

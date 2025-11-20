@@ -10,99 +10,163 @@
 
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="dashboard-header">
-            <h1>Welcome to User Dashboard</h1>
+            <div class="header-content">
+                <h1>User Dashboard</h1>
+                <p>Manage your forms and data submissions</p>
+            </div>
             <div class="user-info">
-                <span>Logged in as: <strong id="usernameDisplay"></strong></span>
+                <div class="user-welcome">
+                    Welcome, <strong id="usernameDisplay">User</strong>
+                </div>
                 <a href="/logout" class="btn btn-danger">Logout</a>
             </div>
         </div>
 
-        <div class="section">
-            <h2>Available Forms</h2>
-            <div class="form-group">
-                <label>Select Form/Table:</label>
-                <select id="tableSelect">
-                    <option value="">Select a form</option>
-                </select>
+        <!-- Main Content -->
+        <div class="dashboard-grid">
+            <!-- Forms Section -->
+            <div class="grid-card">
+                <div class="card-header">
+                    <h2>Fill Out Forms</h2>
+                    <p>Select a form and enter your information</p>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Form:</label>
+                    <select id="tableSelect">
+                        <option value="">Choose a form...</option>
+                    </select>
+                </div>
+
+                <form id="dataForm" style="display: none;">
+                    <div id="formFields">
+                        <!-- Dynamic form fields will appear here -->
+                    </div>
+                    <div class="form-buttons">
+                        <button type="submit" class="btn btn-primary">Submit Form</button>
+                        <button type="button" id="clearFormBtn" class="btn btn-secondary">Clear Form</button>
+                    </div>
+                </form>
+                <div id="formMessage" class="message-container"></div>
             </div>
 
-            <form id="dataForm" style="display: none;">
-                <div id="formFields">
-                    <!-- Dynamic form fields will appear here -->
+            <!-- My Forms Section -->
+            <div class="grid-card">
+                <div class="card-header">
+                    <h2>My Available Forms</h2>
+                    <p>Forms you can fill out</p>
                 </div>
-                <div class="form-buttons">
-                    <button type="submit" class="btn btn-primary">Submit Form</button>
-                    <button type="button" id="clearFormBtn" class="btn btn-secondary">Clear Form</button>
+                <div id="tablesList">
+                    <div class="loading-state">Loading your forms...</div>
                 </div>
-            </form>
-            <div id="formMessage" class="message-container"></div>
+            </div>
         </div>
 
+        <!-- Submissions & Export Section -->
         <div class="section">
-            <h2>My Submissions</h2>
+            <div class="card-header">
+                <h2>My Submissions & Reports</h2>
+                <p>View your submitted data and generate reports</p>
+            </div>
+
             <div id="submissionsList">
-                <p>Loading your submissions...</p>
+                <div class="loading-state">Loading your submissions...</div>
             </div>
-        </div>
 
-        <div class="section">
-            <h2>My Assigned Tables</h2>
-            <div id="tablesList">
-                <p>Loading your tables...</p>
+            <!-- Export Section -->
+            <div class="export-section">
+                <h3 style="color: var(--primary); margin-bottom: 10px;">Generate Reports</h3>
+                <p style="color: var(--gray); margin-bottom: 20px;">Export your data as professional PDF reports</p>
+
+                <div class="form-group">
+                    <label>Select Form for Export:</label>
+                    <select id="exportTableSelect">
+                        <option value="">Choose a form to export...</option>
+                    </select>
+                </div>
+
+                <div class="export-buttons">
+                    <button onclick="exportAllDataPDF()" class="btn btn-success">
+                        Export All Data as PDF Report
+                    </button>
+                    <button onclick="exportSelectedFormData()" class="btn btn-info">
+                        Export Selected Form Data
+                    </button>
+                    <button onclick="generateSummaryReport()" class="btn btn-primary">
+                        Generate Summary Report
+                    </button>
+                </div>
+
+                <div id="exportMessage" class="message-container" style="display: none;"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Store current selection and form data
         let currentSelectedTable = '';
         let currentFormData = {};
+        let userTables = [];
+        let userSubmissions = [];
 
         // Display username
         document.getElementById('usernameDisplay').textContent = 'User';
 
-        // Load available tables/forms for this user
-        function loadTables(preserveSelection = false) {
+        // Load available forms
+        function loadTables() {
             fetch('/get_user_tables')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('tableSelect');
+                    const exportSelect = document.getElementById('exportTableSelect');
                     const tablesList = document.getElementById('tablesList');
 
                     if (data.success && data.tables.length > 0) {
-                        // Store current selection before repopulating
-                        const previousSelection = preserveSelection ? select.value : '';
+                        userTables = data.tables;
 
-                        // Populate dropdown
-                        select.innerHTML = '<option value="">Select a form</option>';
+                        // Populate both dropdowns
+                        select.innerHTML = '<option value="">Choose a form...</option>';
+                        exportSelect.innerHTML = '<option value="">Choose a form to export...</option>';
+
                         data.tables.forEach(table => {
+                            // For form selection
                             const option = document.createElement('option');
                             option.value = table;
                             option.textContent = table;
                             select.appendChild(option);
+
+                            // For export selection
+                            const exportOption = document.createElement('option');
+                            exportOption.value = table;
+                            exportOption.textContent = table;
+                            exportSelect.appendChild(exportOption);
                         });
 
-                        // Restore previous selection if needed
-                        if (preserveSelection && previousSelection && data.tables.includes(previousSelection)) {
-                            select.value = previousSelection;
-                        } else if (preserveSelection && currentSelectedTable && data.tables.includes(currentSelectedTable)) {
-                            // Restore from our stored variable
-                            select.value = currentSelectedTable;
-                        }
+                        // Display forms as cards
+                        tablesList.innerHTML = '<div class="tables-grid"></div>';
+                        const grid = tablesList.querySelector('.tables-grid');
 
-                        // Show tables list
-                        tablesList.innerHTML = '<p>Your assigned tables:</p><ul>' + data.tables.map(table =>
-                            `<li><strong>${table}</strong></li>`
-                        ).join('') + '</ul>';
+                        data.tables.forEach(table => {
+                            const tableCard = document.createElement('div');
+                            tableCard.className = 'table-card';
+                            tableCard.innerHTML = `
+                                <h4>${table}</h4>
+                                <p>Click to fill out this form</p>
+                                <button onclick="selectTable('${table}')" class="btn btn-primary" style="margin-top: 10px; width: 100%;">
+                                    Fill This Form
+                                </button>
+                            `;
+                            grid.appendChild(tableCard);
+                        });
                     } else {
-                        tablesList.innerHTML = '<p>No forms assigned to you yet. Please contact admin.</p>';
+                        tablesList.innerHTML = '<div class="empty-state"><h3>No Forms Available</h3><p>Contact administrator to get forms assigned</p></div>';
                         select.innerHTML = '<option value="">No forms available</option>';
+                        exportSelect.innerHTML = '<option value="">No forms available</option>';
                     }
                 })
                 .catch(error => {
-                    console.error('Error loading tables:', error);
-                    document.getElementById('tablesList').innerHTML = '<p>Error loading tables. Please try again.</p>';
+                    document.getElementById('tablesList').innerHTML = '<div class="error-state"><h3>Error Loading Forms</h3><p>Please try again later</p></div>';
                 });
         }
 
@@ -113,98 +177,139 @@
                 .then(data => {
                     const submissionsList = document.getElementById('submissionsList');
                     if (data.success && data.submissions.length > 0) {
-                        submissionsList.innerHTML = `
-                            <p>You have submitted ${data.submissions.length} record(s):</p>
-                            <table class="submissions-table">
-                                <thead>
-                                    <tr>
-                                        <th>Form/Table</th>
-                                        <th>Record ID</th>
-                                        <th>Submitted At</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${data.submissions.map(sub => `
+                        userSubmissions = data.submissions;
+
+                        let html = `
+                            <div style="margin-bottom: 20px;">
+                                <p>You have submitted <strong>${data.submissions.length}</strong> records in total.</p>
+                            </div>
+                            <div class="table-container" style="overflow-x: auto;">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>${sub.table}</td>
-                                            <td>${sub.record_id}</td>
-                                            <td>${sub.submitted_at}</td>
+                                            <th>Form Name</th>
+                                            <th>Record ID</th>
+                                            <th>Submission Date</th>
+                                            <th>Submission Time</th>
                                         </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
                         `;
+
+                        data.submissions.forEach(sub => {
+                            const date = new Date(sub.submitted_at);
+                            html += `
+                                <tr>
+                                    <td><strong>${sub.table}</strong></td>
+                                    <td>#${sub.record_id}</td>
+                                    <td>${date.toLocaleDateString()}</td>
+                                    <td>${date.toLocaleTimeString()}</td>
+                                </tr>
+                            `;
+                        });
+
+                        html += `</tbody></table></div>`;
+                        submissionsList.innerHTML = html;
                     } else {
-                        submissionsList.innerHTML = '<p>No submissions yet. Select a form above to get started.</p>';
+                        submissionsList.innerHTML = '<div class="empty-state"><h3>No Submissions Yet</h3><p>Select a form above to make your first submission</p></div>';
                     }
                 })
                 .catch(error => {
-                    console.error('Error loading submissions:', error);
-                    submissionsList.innerHTML = '<p>Error loading submissions. Please try again.</p>';
+                    submissionsList.innerHTML = '<div class="error-state"><h3>Error Loading Submissions</h3><p>Please try again later</p></div>';
                 });
         }
 
-        // Save current form data
-        function saveFormData() {
-            const form = document.getElementById('dataForm');
-            if (form.style.display !== 'none') {
-                const formData = new FormData(form);
-                currentFormData = Object.fromEntries(formData.entries());
-            }
+        // Select table from card
+        function selectTable(tableName) {
+            document.getElementById('tableSelect').value = tableName;
+            document.getElementById('tableSelect').dispatchEvent(new Event('change'));
         }
 
-        // Restore form data
-        function restoreFormData() {
-            if (Object.keys(currentFormData).length > 0) {
-                const form = document.getElementById('dataForm');
-                Object.keys(currentFormData).forEach(key => {
-                    const input = form.querySelector(`[name="${key}"]`);
-                    if (input) {
-                        if (input.type === 'checkbox') {
-                            input.checked = currentFormData[key] === 'true';
-                        } else if (input.type === 'select-one') {
-                            input.value = currentFormData[key];
-                        } else {
-                            input.value = currentFormData[key];
-                        }
-                    }
-                });
-            }
+        // Show message
+        function showMessage(message, type, elementId = 'formMessage') {
+            const messageDiv = document.getElementById(elementId);
+            messageDiv.textContent = message;
+            messageDiv.className = `message-${type}`;
+            messageDiv.style.display = 'block';
+
+            setTimeout(() => {
+                if (type !== 'info') {
+                    messageDiv.style.display = 'none';
+                }
+            }, 5000);
         }
 
-        // Clear form data
-        function clearFormData() {
-            currentFormData = {};
-            document.getElementById('dataForm').reset();
-            const messageDiv = document.getElementById('formMessage');
-            messageDiv.textContent = '';
-            messageDiv.className = '';
+        // Export functions
+        function exportAllDataPDF() {
+            showMessage('Generating comprehensive PDF report...', 'info', 'exportMessage');
+
+            // Create a download link
+            const link = document.createElement('a');
+            link.href = '/export_user_data_pdf';
+            link.download = `user_data_report_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setTimeout(() => {
+                showMessage('PDF report generated successfully! Check your downloads.', 'success', 'exportMessage');
+            }, 2000);
+        }
+
+        function exportSelectedFormData() {
+            const exportSelect = document.getElementById('exportTableSelect');
+            const selectedTable = exportSelect.value;
+
+            if (!selectedTable) {
+                showMessage('Please select a form first from the dropdown above', 'error', 'exportMessage');
+                return;
+            }
+
+            showMessage(`Generating PDF report for ${selectedTable}...`, 'info', 'exportMessage');
+
+            const link = document.createElement('a');
+            link.href = `/export_form_data_pdf?table_name=${encodeURIComponent(selectedTable)}`;
+            link.download = `${selectedTable}_report_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setTimeout(() => {
+                showMessage(`PDF report for ${selectedTable} generated!`, 'success', 'exportMessage');
+            }, 2000);
+        }
+
+        function generateSummaryReport() {
+            showMessage('Creating summary report...', 'info', 'exportMessage');
+
+            const link = document.createElement('a');
+            link.href = '/export_summary_pdf';
+            link.download = `summary_report_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setTimeout(() => {
+                showMessage('Summary report generated successfully!', 'success', 'exportMessage');
+            }, 2000);
         }
 
         // Load data on page load
         loadTables();
         loadSubmissions();
 
-        // When form/table is selected, load its structure
+        // When form is selected
         document.getElementById('tableSelect').addEventListener('change', function () {
             const tableName = this.value;
             const form = document.getElementById('dataForm');
             const formFields = document.getElementById('formFields');
 
-            // Save current form data before changing
-            if (currentSelectedTable && currentSelectedTable !== tableName) {
-                saveFormData();
-            }
-
-            // Store current selection
             currentSelectedTable = tableName;
 
             if (tableName) {
-                // Show loading message
-                formFields.innerHTML = '<p>Loading form...</p>';
+                formFields.innerHTML = '<div class="loading-state">Loading form structure...</div>';
                 form.style.display = 'block';
 
-                // Fetch table columns and create form
                 fetch(`/get_table_columns/${tableName}`)
                     .then(response => response.json())
                     .then(data => {
@@ -212,7 +317,7 @@
                             formFields.innerHTML = '';
 
                             if (data.columns.length === 0) {
-                                formFields.innerHTML = '<p>No fields found in this form.</p>';
+                                formFields.innerHTML = '<div class="empty-state"><p>No fields configured in this form</p></div>';
                                 return;
                             }
 
@@ -223,32 +328,28 @@
                                 let inputField = '';
                                 const colName = column.name;
                                 const colType = column.type;
-
-                                // Get saved value for this field
                                 const savedValue = currentFormData[colName] || '';
 
-                                // Check if this column has dropdown options
+                                // Check for dropdown options
                                 const dropdownOptions = data.dropdownOptions && data.dropdownOptions[colName];
 
                                 if (dropdownOptions && dropdownOptions.length > 0) {
-                                    // Create dropdown select
                                     inputField = `<select name="${colName}" required>`;
-                                    inputField += '<option value="">Select an option</option>';
+                                    inputField += '<option value="">-- Select an option --</option>';
                                     dropdownOptions.forEach(option => {
                                         const selected = savedValue === option.value ? 'selected' : '';
                                         inputField += `<option value="${option.value}" ${selected}>${option.label}</option>`;
                                     });
                                     inputField += '</select>';
                                 } else if (colType.includes('int') || colType.includes('decimal')) {
-                                    inputField = `<input type="number" name="${colName}" step="${colType.includes('decimal') ? '0.01' : '1'}" value="${savedValue}" required>`;
+                                    inputField = `<input type="number" name="${colName}" value="${savedValue}" required>`;
                                 } else if (colType.includes('bool')) {
-                                    const trueSelected = savedValue === 'true' ? 'selected' : '';
-                                    const falseSelected = savedValue === 'false' ? 'selected' : '';
+                                    const selected = savedValue === 'true' ? 'selected' : '';
                                     inputField = `
                                         <select name="${colName}" required>
-                                            <option value="">Select option</option>
-                                            <option value="true" ${trueSelected}>True</option>
-                                            <option value="false" ${falseSelected}>False</option>
+                                            <option value="">-- Select --</option>
+                                            <option value="true" ${selected}>Yes</option>
+                                            <option value="false">No</option>
                                         </select>
                                     `;
                                 } else if (colType.includes('date')) {
@@ -258,39 +359,28 @@
                                 }
 
                                 formGroup.innerHTML = `
-                                    <label>${colName} (${colType}):</label>
+                                    <label>${colName}</label>
                                     ${inputField}
                                 `;
                                 formFields.appendChild(formGroup);
                             });
 
-                            // Add event listeners to save data on input change
-                            const inputs = formFields.querySelectorAll('input, select, textarea');
-                            inputs.forEach(input => {
-                                input.addEventListener('input', saveFormData);
-                                input.addEventListener('change', saveFormData);
-                            });
-
                         } else {
-                            formFields.innerHTML = '<p>Error loading form structure: ' + data.message + '</p>';
+                            formFields.innerHTML = '<div class="error-state"><p>Error loading form structure</p></div>';
                             form.style.display = 'none';
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error loading columns:', error);
-                        formFields.innerHTML = '<p>Error loading form structure. Please try again.</p>';
-                        form.style.display = 'none';
                     });
             } else {
                 form.style.display = 'none';
-                currentFormData = {};
             }
         });
 
         // Clear form button
         document.getElementById('clearFormBtn').addEventListener('click', function () {
             if (confirm('Are you sure you want to clear the form? All entered data will be lost.')) {
-                clearFormData();
+                currentFormData = {};
+                document.getElementById('dataForm').reset();
+                showMessage('Form cleared successfully!', 'success');
             }
         });
 
@@ -302,7 +392,7 @@
             const data = Object.fromEntries(formData.entries());
             const tableName = document.getElementById('tableSelect').value;
 
-            // Validate form
+            // Validate
             let isValid = true;
             Object.values(data).forEach(value => {
                 if (!value || value.toString().trim() === '') {
@@ -311,9 +401,7 @@
             });
 
             if (!isValid) {
-                const messageDiv = document.getElementById('formMessage');
-                messageDiv.textContent = 'Please fill in all required fields.';
-                messageDiv.className = 'message-error';
+                showMessage('Please fill in all required fields.', 'error');
                 return;
             }
 
@@ -322,84 +410,37 @@
                 formData: data
             };
 
-            // Show loading state
             const submitButton = this.querySelector('button[type="submit"]');
-            const originalText = submitButton.textContent;
-            submitButton.textContent = 'Submitting...';
+            const originalText = submitButton.innerHTML;
+            submitButton.innerHTML = 'Submitting...';
             submitButton.disabled = true;
-
-            // Clear any previous messages
-            const messageDiv = document.getElementById('formMessage');
-            messageDiv.textContent = '';
-            messageDiv.className = '';
 
             fetch('/submit_form_data', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(submitData)
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
-                    console.log('Submission response:', data);
-
                     if (data.success) {
-                        messageDiv.textContent = '✅ Form submitted successfully! Data has been saved.';
-                        messageDiv.className = 'message-success';
-
-                        // Clear form data after successful submission
-                        clearFormData();
+                        showMessage('✅ Form submitted successfully! Your data has been saved.', 'success');
+                        document.getElementById('dataForm').reset();
                         document.getElementById('dataForm').style.display = 'none';
                         document.getElementById('tableSelect').value = '';
                         currentSelectedTable = '';
-
-                        // Reload submissions and tables to show updated data
                         loadSubmissions();
-                        loadTables(false);
-
-                        // Keep success message visible for 5 seconds
-                        setTimeout(() => {
-                            messageDiv.textContent = '';
-                            messageDiv.className = '';
-                        }, 5000);
                     } else {
-                        messageDiv.textContent = data.message || 'Error submitting form. Please try again.';
-                        messageDiv.className = 'message-error';
+                        showMessage(data.message || 'Error submitting form. Please try again.', 'error');
                     }
                 })
                 .catch(error => {
-                    console.error('Error submitting form:', error);
-                    messageDiv.textContent = 'Error submitting form. Please try again.';
-                    messageDiv.className = 'message-error';
+                    showMessage('Network error. Please check your connection and try again.', 'error');
                 })
                 .finally(() => {
-                    // Restore button state
-                    submitButton.textContent = originalText;
                     submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
                 });
         });
-
-        // Save form data periodically and before page unload
-        setInterval(saveFormData, 5000); // Save every 5 seconds
-
-        // Also save when user leaves the page
-        window.addEventListener('beforeunload', saveFormData);
-
-        // Refresh data every 30 seconds but preserve current selection and form data
-        setInterval(() => {
-            saveFormData(); // Save current form data before refresh
-            loadTables(true); // Pass true to preserve current selection
-            loadSubmissions();
-
-            // Restore form data after a short delay to ensure form is rebuilt
-            setTimeout(restoreFormData, 100);
-        }, 30000);
     </script>
 </body>
 
